@@ -1,0 +1,199 @@
+/* Base Styles */
+:root {
+    --uh-red: #CC0000;
+    --light-grey: #f4f4f4;
+    --dark-grey: #333;
+    --border-radius: 8px;
+    --shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: sans-serif;
+}
+
+body {
+    background-color: var(--light-grey);
+    color: var(--dark-grey);
+    line-height: 1.6;
+}
+
+header {
+    background: var(--uh-red);
+    color: white;
+    padding: 20px;
+    text-align: center;
+    box-shadow: var(--shadow);
+}
+
+nav {
+    margin-top: 10px;
+}
+
+.nav-tab {
+    background: none;
+    border: none;
+    color: white;
+    padding: 10px 20px;
+    margin: 0 5px;
+    cursor: pointer;
+    font-size: 1.1em;
+    border-bottom: 3px solid transparent;
+    transition: all 0.3s ease;
+}
+
+.nav-tab.active,
+.nav-tab:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    border-bottom: 3px solid white;
+}
+
+/* Main Layout for UH Tracker */
+.top-section {
+    display: flex;
+    max-width: 1200px;
+    margin: 30px auto;
+    padding: 0 20px;
+    gap: 30px;
+}
+
+/* Map Container (Left Column) */
+.map-container {
+    flex: 2; /* Takes 2/3 of the width */
+    background: white;
+    padding: 20px;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+}
+
+.map-placeholder {
+    height: 400px; /* Placeholder height */
+    background: #e9e9e9;
+    border: 1px dashed #ccc;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    color: #888;
+}
+
+/* Simulated Map Markers */
+.map-marker {
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    background-color: var(--uh-red);
+    border-radius: 50%;
+    cursor: pointer;
+    border: 3px solid white;
+    transition: transform 0.2s;
+}
+
+.map-marker:hover {
+    transform: scale(1.2);
+}
+
+/* Stats Panel (Right Column) */
+.stats-panel {
+    flex: 1; /* Takes 1/3 of the width */
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.model-view, .bin-stats-view {
+    background: white;
+    padding: 20px;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+}
+
+.model-placeholder {
+    height: 200px;
+    background: #e9e9e9;
+    border: 1px dashed var(--uh-red);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    margin-top: 15px;
+    cursor: pointer;
+}
+
+.stat-box {
+    margin-top: 15px;
+    padding: 10px;
+    border-left: 5px solid var(--uh-red);
+    background: var(--light-grey);
+}
+
+.stat-box span {
+    display: block;
+    font-size: 1.5em;
+    font-weight: bold;
+    color: var(--uh-red);
+    margin-top: 5px;
+}
+
+/* Campus-Wide Stats (Scroll-Down) */
+.campus-wide-stats {
+    max-width: 1200px;
+    margin: 50px auto;
+    padding: 30px 20px;
+    background: white;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+}
+
+.overall-metrics {
+    display: flex;
+    justify-content: space-around;
+    text-align: center;
+    margin: 20px 0;
+}
+
+.metric-card p {
+    font-size: 2em;
+    font-weight: bold;
+    color: var(--uh-red);
+}
+
+.chart-placeholder {
+    height: 300px;
+    background: #e9e9e9;
+    border: 1px dashed #ccc;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-top: 20px;
+}
+
+/* University Benchmark Tab */
+.university-benchmark {
+    max-width: 900px;
+    margin: 30px auto;
+    padding: 20px;
+    background: white;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+}
+
+th, td {
+    padding: 12px 15px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+}
+
+th {
+    background-color: var(--uh-red);
+    color: white;
+}

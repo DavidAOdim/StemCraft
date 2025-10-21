@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grounded | UH Campus Recycling Tracker</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.js"></script>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+            },
+            colors: {
+              // Custom UH-inspired colors
+              'cougar-red': '#CC0000',
+              'cougar-gold': '#FFC72C',
+              'eco-green': '#4CAF50',
+              'eco-gray': '#F4F6F8',
+              'eco-dark': '#2C3E50',
+              'fund-blue': '#2196F3', // New color for funding
+            },
+            boxShadow: {
+              'custom': '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+        /* Custom CSS for Map and 3D */
+        #uh-map {
+            height: 450px;
+            z-index: 0; /* Important for map to render correctly */
+        }
+        #trashcan-model-container {
+            height: 350px;
+            cursor: move;
+            touch-action: none; /* Prevents default touch scrolling */
+        }
+        /* Custom style for highlighted selected bin in stats panel */
+        .selected-bin-highlight {
+            border-color: var(--tw-colors-cougar-gold) !important;
+            background-color: var(--tw-colors-cougar-gold) !important;
+            color: var(--tw-colors-eco-dark) !important;
+        }
+    </style>
+</head>
+<body class="bg-eco-gray font-sans">
+    <div class="flex min-h-screen">
+        
+        <aside class="w-64 bg-eco-dark text-white flex-shrink-0 p-6 hidden lg:flex flex-col">
+            <div>
+                <div class="flex items-center gap-3 mb-10">
+                    <i data-lucide="leaf" class="h-8 w-8 text-eco-green"></i>
+                    <h1 class="text-2xl font-bold">Grounded</h1>
+                </div>
+                <nav>
+                    <ul class="space-y-3">
+                        <li>
+                            <button id="tab-uh-tracker" class="tab-button w-full flex items-center gap-3 px-4 py-3 bg-cougar-red/20 text-white rounded-lg font-semibold border-l-4 border-cougar-red text-left">
+                                <i data-lucide="map"></i>
+                                <span>UH Recycling Map</span>
+                            </button>
+                        </li>
+                        <li>
+                            <button id="tab-other-universities" class="tab-button w-full flex items-center gap-3 px-4 py-3 text-gray-400 hover:bg-white/10 hover:text-white rounded-lg transition-colors text-left">
+                                <i data-lucide="building-2"></i>
+                                <span>University Benchmark</span>
+                            </button>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+        </aside>
+
+        <div class="flex-1">
+            <div class="p-4 md:p-8">
+                <header class="mb-8 p-6 bg-white rounded-2xl shadow-custom">
+                    <h2 class="text-3xl font-extrabold text-cougar-red flex items-center gap-3">
+                        <i data-lucide="route" class="w-8 h-8"></i>
+                        Campus Recycling Tracker
+                    </h2>
+                    <p class="text-gray-600 mt-1">Locate bins and track our collective impact on the **University of Houston** campus.</p>
+                </header>
+
+                <section id="uh-tracker-content" class="tab-content">
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        
+                        <div class="lg:col-span-2 bg-white p-6 rounded-2xl shadow-custom">
+                            <h3 class="text-2xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                                <i data-lucide="map-pin" class="w-5 h-5 text-eco-green"></i>
+                                Real-Time Bin Locations
+                            </h3>
+                            <div id="uh-map" class="rounded-xl overflow-hidden border-4 border-cougar-red/50"></div>
+                        </div>
+
+                        <div class="space-y-6">
+                            
+                            <div class="bg-cougar-red p-4 rounded-2xl shadow-custom text-white">
+                                <h3 class="text-xl font-bold mb-2 flex items-center gap-2">
+                                    <i data-lucide="rotate-3d" class="w-5 h-5 text-cougar-gold"></i>
+                                    Bin Visualization
+                                </h3>
+                                <div id="trashcan-model-container" class="bg-cougar-red-dark rounded-xl flex justify-center items-center overflow-hidden">
+                                    </div>
+                                <p class="text-sm text-center mt-2 text-cougar-gold/80">Drag to spin, click to open/log! Total Count: <span id="trashcan-3d-count" class="font-extrabold">0</span></p>
+                            </div>
+
+                            <div id="bin-stats-card" class="bg-white p-6 rounded-2xl shadow-custom border-t-4 border-eco-green">
+                                <h3 id="bin-location-name" class="text-xl font-bold text-gray-800 mb-4">Select a bin on the map 👆</h3>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div class="p-3 bg-eco-gray rounded-lg">
+                                        <p class="text-sm text-gray-500">Recycled (Last Week):</p>
+                                        <span id="bin-weight" class="text-2xl font-bold text-eco-green">--</span>
+                                    </div>
+                                    <div class="p-3 bg-eco-gray rounded-lg">
+                                        <p class="text-sm text-gray-500">Campus Rank:</p>
+                                        <span id="bin-rank" class="text-2xl font-bold text-cougar-red">--</span>
+                                    </div>
+                                    <div class="p-3 bg-eco-gray rounded-lg col-span-2">
+                                        <p class="text-sm text-gray-500">Last Emptied:</p>
+                                        <span id="bin-emptied" class="text-lg font-medium text-gray-700">--</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-10 bg-white p-8 rounded-2xl shadow-custom">
+                        <h2 class="text-3xl font-bold text-eco-dark mb-6 border-b pb-2">
+                            <i data-lucide="bar-chart-3" class="w-6 h-6 inline-block mr-2 text-eco-green"></i>
+                            University of Houston Total Impact
+                        </h2>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
+                            <div class="p-4 bg-cougar-red/10 rounded-xl">
+                                <p class="text-4xl font-extrabold text-cougar-red">45,210 kg</p>
+                                <p class="text-gray-600 mt-1">Total Tonnage Recycled (YTD)</p>
+                            </div>
+                            <div class="p-4 bg-eco-green/10 rounded-xl">
+                                <p class="text-4xl font-extrabold text-eco-green">1,250 🌳</p>
+                                <p class="text-gray-600 mt-1">Trees Saved Equivalent</p>
+                            </div>
+                            <div class="p-4 bg-cougar-gold/10 rounded-xl">
+                                <p class="text-4xl font-extrabold text-cougar-gold">28%</p>
+                                <p class="text-gray-600 mt-1">Campus Recycling Rate</p>
+                            </div>
+                        </div>
+                        <div class="h-64 mt-6 bg-gray-100 rounded-xl border border-gray-300 flex items-center justify-center">
+                            <p class="text-gray-500">Data Visualization Charts (e.g., Monthly Tonnage, Material Breakdown)</p>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="other-universities-content" class="tab-content hidden">
+                    <div class="bg-white p-8 rounded-2xl shadow-custom">
+                        <h2 class="text-3xl font-bold text-eco-dark mb-6">
+                            <i data-lucide="scale" class="w-6 h-6 inline-block mr-2 text-eco-blue"></i>
+                            University Recycling Benchmark (Comparison)
+                        </h2>
+
+                        <div id="funding-bar" class="hidden bg-fund-blue text-white p-4 rounded-xl mb-6 text-center shadow-md">
+                            <h4 class="text-lg font-bold flex items-center justify-center gap-2">
+                                <i data-lucide="banknote" class="w-6 h-6 text-cougar-gold"></i>
+                                UH is currently leading! Funding Earned: 
+                                <span id="funding-amount" class="text-2xl font-extrabold text-cougar-gold ml-2">\$0.00</span>
+                            </h4>
+                            <p class="text-sm mt-1 opacity-80">We earn $1 per kilogram recycled. Keep it up!</p>
+                        </div>
+
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead>
+                                <tr class="bg-eco-gray">
+                                    <th class="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">University</th>
+                                    <th class="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Annual Rate</th>
+                                    <th class="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Tons Recycled (Last Year)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="benchmark-table-body" class="bg-white divide-y divide-gray-200">
+                                </tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        lucide.createIcons();
+
+        // --- 1. Data Mockup (With more bins and tons in KG) ---
+        const UH_COORDS = [29.7203, -95.3415]; // Center of UH Campus (approx)
+        
+        const BIN_DATA = [
+            { id: 'bin-101', name: 'Science Center Foyer', lat: 29.7208, lng: -95.3425, weight: '45.2 kg', rank: '#4', emptied: '2 hours ago' },
+            { id: 'bin-102', name: 'MD Anderson Library (3rd Fl)', lat: 29.7215, lng: -95.3440, weight: '98.1 kg', rank: '#1', emptied: '10 mins ago' },
+            { id: 'bin-103', name: 'Cougar Village Dorm Lobby', lat: 29.7185, lng: -95.3400, weight: '33.5 kg', rank: '#12', emptied: 'Yesterday' },
+            { id: 'bin-104', name: 'Student Center South', lat: 29.7198, lng: -95.3410, weight: '60.0 kg', rank: '#3', emptied: '4 hours ago' },
+            { id: 'bin-105', name: 'ERP Warehouse Loading Dock', lat: 29.7250, lng: -95.3350, weight: '15.9 kg', rank: '#25', emptied: '1 day ago' },
+            { id: 'bin-106', name: 'Technology Annex Entrance', lat: 29.7230, lng: -95.3455, weight: '51.8 kg', rank: '#5', emptied: '8 hours ago' },
+        ];
+        
+        // Dummy data for comparison (Tons converted to KG for consistency, 1 ton = 907.185 kg)
+        const UH_TOTAL_KG = 45210; // From Campus-Wide Stats Section
+        
+        const BENCHMARK_DATA = [
+            { university: 'Texas A&M', rate: '35%', tons_kg: 59000 },
+            { university: 'UT Austin', rate: '22%', tons_kg: 42000 },
+            { university: 'Rice University', rate: '40%', tons_kg: 21000 },
+            { university: 'Texas Tech', rate: '18%', tons_kg: 30000 },
+            // UH is deliberately set lower than A&M to show it's NOT the winner initially
+            { university: 'University of Houston', rate: '28%', tons_kg: UH_TOTAL_KG, highlight: true }
+        ];
+
+        const FUNDING_RATE = 1; // $1 per kg recycled
+
+        let selectedBinId = null;
+
+        // --- 2. Map Initialization (Leaflet) ---
+        let uhMap = null;
+
+        function initMap() {
+            uhMap = L.map('uh-map').setView(UH_COORDS, 16);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+            }).addTo(uhMap);
+
+            // Add Markers
+            BIN_DATA.forEach(bin => {
+                const markerIcon = L.divIcon({
+                    className: 'custom-marker',
+                    html: `<div class="bg-cougar-red p-1 rounded-full border-2 border-white shadow-lg cursor-pointer transform hover:scale-125 transition-transform" data-bin-id="${bin.id}"><i data-lucide="package-open" class="text-white h-5 w-5"></i></div>`,
+                    iconSize: [30, 30],
+                    iconAnchor: [15, 30]
+                });
+
+                const marker = L.marker([bin.lat, bin.lng], { icon: markerIcon, binId: bin.id }).addTo(uhMap);
+
+                marker.bindPopup(`<b>${bin.name}</b><br>Rank: ${bin.rank}`).on('click', (e) => {
+                    updateBinStats(e.target.options.binId);
+                });
+            });
+
+            lucide.createIcons();
+        }
+
+        // --- 3. Data Population Functions ---
+        function updateBinStats(binId) {
+            const data = BIN_DATA.find(b => b.id === binId);
+            
+            document.getElementById('bin-location-name').textContent = data.name;
+            document.getElementById('bin-weight').textContent = data.weight;
+            document.getElementById('bin-rank').textContent = data.rank;
+            document.getElementById('bin-emptied').textContent = data.emptied;
+
+            const card = document.getElementById('bin-stats-card');
+            card.classList.add('selected-bin-highlight', 'border-cougar-gold');
+            card.classList.remove('border-eco-green');
+            
+            setTimeout(() => {
+                card.classList.remove('selected-bin-highlight', 'border-cougar-gold');
+                card.classList.add('border-eco-green');
+            }, 1000);
+
+            selectedBinId = binId;
+        }
+
+        function populateBenchmarkTable() {
+            const tableBody = document.getElementById('benchmark-table-body');
+            tableBody.innerHTML = '';
+            
+            // Find the winning school and UH's rank
+            const sortedData = [...BENCHMARK_DATA].sort((a, b) => b.tons_kg - a.tons_kg);
+            const winner = sortedData[0];
+            const uhData = sortedData.find(d => d.university === 'University of Houston');
+            const uhRank = sortedData.findIndex(d => d.university === 'University of Houston') + 1;
+
+            // Update funding bar
+            const fundingBar = document.getElementById('funding-bar');
+            const fundingAmount = document.getElementById('funding-amount');
+
+            if (uhData.university === winner.university) {
+                const earned = uhData.tons_kg * FUNDING_RATE;
+                fundingAmount.textContent = `$${earned.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                fundingBar.classList.remove('hidden');
+            } else {
+                fundingBar.classList.add('hidden');
+            }
+
+
+            // Populate table rows
+            BENCHMARK_DATA.forEach(data => {
+                const row = tableBody.insertRow();
+                const baseClasses = 'px-6 py-4 whitespace-nowrap text-sm text-gray-800';
+                
+                const tonsDisplay = `${(data.tons_kg / 1000).toFixed(2)} metric tons`;
+
+                let universityCell = `<div class="${baseClasses} ${data.highlight ? 'font-bold text-cougar-red' : ''}">${data.university}`;
+                if (data.university === winner.university) {
+                    universityCell += ` <span class="text-xs text-cougar-gold bg-eco-dark px-2 py-0.5 rounded-full font-extrabold">WINNER</span>`;
+                }
+                universityCell += `</div>`;
+
+
+                row.insertCell().innerHTML = universityCell;
+                row.insertCell().innerHTML = `<div class="${baseClasses}">${data.rate}</div>`;
+                row.insertCell().innerHTML = `<div class="${baseClasses}">${tonsDisplay}</div>`;
+                
+                if (data.highlight) {
+                    row.classList.add('bg-cougar-red/10');
+                }
+            });
+        }
+
+        // --- 4. Tab Switching Logic ---
+        function switchTab(targetId) {
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.add('hidden'));
+            document.getElementById(targetId).classList.remove('hidden');
+
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('bg-cougar-red/20', 'border-cougar-red', 'font-semibold', 'text-white', 'border-l-4');
+                btn.classList.add('text-gray-400', 'hover:bg-white/10', 'hover:text-white');
+            });
+
+            const activeBtn = document.getElementById('tab-' + targetId.replace('-content', ''));
+            if (activeBtn) {
+                 activeBtn.classList.add('bg-cougar-red/20', 'border-cougar-red', 'font-semibold', 'text-white', 'border-l-4');
+                 activeBtn.classList.remove('text-gray-400', 'hover:bg-white/10', 'hover:text-white');
+            }
+
+            if (targetId === 'other-universities-content') {
+                populateBenchmarkTable();
+            }
+            
+            if (targetId === 'uh-tracker-content' && uhMap) {
+                uhMap.invalidateSize();
+            }
+        }
+        
+        // --- 5. Three.js 3D Trashcan Setup ---
+        let trashcan3DCount = 0;
+        let trashcan, lid, countSprite;
+
+        function update3DCountDisplay(count) {
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            canvas.width = 512;
+            canvas.height = 128; 
+            
+            context.fillStyle = '#FFFFFF';
+            context.fillRect(0, 0, canvas.width, canvas.height); 
+
+            context.font = 'Bold 80px Inter, sans-serif';
+            context.fillStyle = '#CC0000'; 
+            context.textAlign = 'center';
+            context.textBaseline = 'middle';
+            context.fillText(`RECYCLED: ${count}`, canvas.width / 2, canvas.height / 2);
+
+            if (countSprite) {
+                countSprite.material.map.dispose();
+            }
+            const texture = new THREE.CanvasTexture(canvas);
+            
+            if (countSprite) {
+                countSprite.material.map = texture;
+            } else {
+                 const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
+                 countSprite = new THREE.Sprite(spriteMaterial);
+                 countSprite.scale.set(4, 1, 1);
+                 countSprite.position.set(0, 2.5, 0);
+                 scene.add(countSprite);
+            }
+            
+            document.getElementById('trashcan-3d-count').textContent = count;
+        }
+
+        function setupThreeJS() {
+            const container = document.getElementById('trashcan-model-container');
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+            
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
+            const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            
+            renderer.setSize(width, height);
+            container.appendChild(renderer.domElement);
+            
+            // Modern Trashcan (Octagonal prism)
+            const trashcanGeometry = new THREE.CylinderGeometry(1.2, 0.9, 3.5, 8);
+            const trashcanMaterial = new THREE.MeshPhongMaterial({ color: 0xCC0000, shininess: 30 });
+            trashcan = new THREE.Mesh(trashcanGeometry, trashcanMaterial);
+            scene.add(trashcan);
+            
+            // Lid
+            const lidGeometry = new THREE.CylinderGeometry(1.3, 1.3, 0.3, 8);
+            const lidMaterial = new THREE.MeshPhongMaterial({ color: 0x880000, shininess: 50 });
+            lid = new THREE.Mesh(lidGeometry, lidMaterial);
+            lid.position.y = 1.9;
+            scene.add(lid);
+            
+            trashcan.position.y = 0;
+            camera.position.z = 4;
+            camera.position.y = 1;
+
+            // Lighting
+            scene.add(new THREE.AmbientLight(0x404040, 3)); 
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 2.5);
+            directionalLight.position.set(5, 10, 5);
+            scene.add(directionalLight);
+
+            update3DCountDisplay(trashcan3DCount);
+
+            let isLidOpen = false;
+            container.addEventListener('click', () => {
+                isLidOpen = !isLidOpen;
+                if (!isLidOpen) {
+                    // Only increment when closing (simulating recycling action)
+                    trashcan3DCount++;
+                    update3DCountDisplay(trashcan3DCount);
+                }
+            });
+            
+            // Mouse/Touch controls for spinning
+            let isDragging = false;
+            let previousMousePosition = { x: 0, y: 0 };
+            
+            container.addEventListener('mousedown', (e) => { isDragging = true; previousMousePosition.x = e.clientX; });
+            container.addEventListener('mouseup', () => { isDragging = false; });
+            container.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                const deltaX = e.clientX - previousMousePosition.x;
+                trashcan.rotation.y += deltaX * 0.01;
+                lid.rotation.y += deltaX * 0.01;
+                countSprite.rotation.y += deltaX * 0.01;
+                previousMousePosition.x = e.clientX;
+            });
+            
+            const animate = function () {
+                requestAnimationFrame(animate);
+
+                if (!isDragging) {
+                    trashcan.rotation.y += 0.003;
+                    lid.rotation.y += 0.003;
+                    countSprite.rotation.y += 0.003;
+                }
+
+                // Animate the lid opening/closing
+                const targetY = isLidOpen ? 2.8 : 1.9;
+                lid.position.y += (targetY - lid.position.y) * 0.1;
+
+                renderer.render(scene, camera);
+            };
+
+            window.addEventListener('resize', () => {
+                camera.aspect = container.clientWidth / container.clientHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(container.clientWidth, container.clientHeight);
+            });
+
+            animate();
+        }
+
+
+        // --- 6. Initialization ---
+        document.addEventListener('DOMContentLoaded', () => {
+            initMap();
+            setupThreeJS();
+            
+            // Setup Tab Listeners
+            document.getElementById('tab-uh-tracker').addEventListener('click', () => switchTab('uh-tracker-content'));
+            document.getElementById('tab-other-universities').addEventListener('click', () => switchTab('other-universities-content'));
+
+            // Set initial state
+            updateBinStats(BIN_DATA[0].id);
+        });
+    </script>
+</body>
+</html>
